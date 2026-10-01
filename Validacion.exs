@@ -1,4 +1,4 @@
- defmodule Validacion do
+defmodule Validacion do
   @moduledoc """
   Validación de los servicios registrados por los repartidores.
 
@@ -7,6 +7,12 @@
   """
 
   @dias 1..6
+  @tarifa_base 2_500
+  @meta_diaria_km 500
+  @max_km_servicio 45
+  @km_bonificacion 80
+  @bonificacion_dia 15_000
+  @alquiler_bicicleta 10_000
 
   @doc """
   Valida un servicio.
@@ -64,4 +70,24 @@
       {:error, :dia_invalido}
     end
   end
+
+  # Funciones Publicas de acceso a constantes
+
+  @doc "Retorna la tarifa base por kilómetro"
+  def tarifa_base, do: @tarifa_base
+
+  @doc "Retorna la meta diaria de kilómetros de la empresa"
+  def meta_diaria_km, do: @meta_diaria_km
+
+  @doc "Retorna el máximo de kilómetros permitido por servicio"
+  def max_km_servicio, do: @max_km_servicio
+
+  @doc "Retorna los kilómetros necesarios para la bonificación diaria"
+  def km_bonificacion, do: @km_bonificacion
+
+  @doc "Retorna el valor de la bonificación diaria"
+  def bonificacion_dia, do: @bonificacion_dia
+
+  @doc "Retorna el costo de alquiler de bicicleta por día trabajado"
+  def alquiler_bicicleta, do: @alquiler_bicicleta
 end
