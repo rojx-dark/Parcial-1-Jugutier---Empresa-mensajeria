@@ -120,3 +120,111 @@ defmodule Calculos do
     end
   end
 end
+
+# --------------------------------------------------
+  # 4. LIQUIDACIÓN POR REPARTIDOR
+  # --------------------------------------------------
+
+  @doc """
+  Calcula la liquidación completa de un repartidor.
+
+  Recibe:
+    - repartidor: mapa del repartidor
+    - servicios_validos: lista de TODOS los servicios válidos
+
+  Retorna un mapa con:
+    %{
+      codigo:        String,
+      nombre:        String,
+      kilometros:    número total de km recorridos,
+      valor_servicios: número total en pesos de sus servicios,
+      bonificaciones:  número total de bonificaciones recibidas,
+      alquiler:        número total descontado por bicicleta,
+      neto:            valor_servicios + bonificaciones - alquiler
+    }
+  """
+  def calcular_liquidacion(repartidor, servicios_validos) do
+    servicios_rep = Enum.filter(servicios_validos, fn s -> repartidor == repartidor.codigo end)
+    servicios_por_dia = Enum.group_by(servicios_rep, & &1.dia)
+
+    km_totales =
+      servicios_rep
+      |> Enum.map(& &1.kilometros)
+      |> Enum.sum()
+
+    total_servicios =
+      servicios_rep
+      |> Enum.map(&calcular_valor_servicio/1)
+      |> Enum.sum()
+
+    total_bonificaciones =
+      servicios_por_dia
+      |> Enum.map(fn{_dia, servicios_dia} -> calcular_bonificacion_dia(servicios_dia) end)
+      |> Enum.sum()
+
+    alquiler = caluclar_alquiler(repartidor, servicios_validos)
+    neto = total_servicios + total_bonificaciones - alquiler
+
+    %{
+      codigo: repartidor.codigo,
+      nombre: repartidor.nombre,
+      kilometros: km_totales,
+      valor_servicios: total_servicios,
+      bonificaciones: total_bonificaciones,
+      alquiler: alquiler,
+      neto: neto,
+    }
+  end
+
+  @doc """
+  Calcula la liquidación de TODOS los repartidores.
+
+  Recibe:
+    - repartidores: lista de todos los repartidores
+    - servicios_validos: lista de todos los servicios válidos
+
+  Retorna una lista de mapas (uno por repartidor), incluyendo
+  los que no tienen servicios (sus valores numéricos deben ser 0).
+  """
+  def calcular_liquidacion_todos(repartidores, servicios_validos) do
+    Enum.map(repartidores, )
+    # Aplica calcular_liquidacion a cada repartidor
+  end
+
+  # --------------------------------------------------
+  # 5. DETALLE POR DÍA (para el comprobante R4 y comprobante)
+  # --------------------------------------------------
+
+  @doc """
+  Calcula el detalle día a día de un repartidor.
+
+  Recibe:
+    - repartidor: mapa del repartidor
+    - servicios_validos: lista de todos los servicios válidos
+
+  Retorna una lista de mapas, uno por día trabajado (solo días con servicios válidos):
+    %{
+      dia:            número del día,
+      kilometros:     km recorridos ese día,
+      valor_servicios: valor de los servicios de ese día,
+      bonificacion:   bonificación obtenida ese día
+    }
+  """
+  def calcular_detalle_por_dia(repartidor, servicios_validos) do
+    servicios_validos
+    |> Enum.filter(fn s -> s.repartidor == repartidor.codigo end)
+    |> Enum.group_by(& &1.dia)
+    |> Enum.map(fn {dia, servicios_dia} ->ene
+      km_dia = servicios_dia |> Enum.map(& &1.kilometros) |> Enum.sum()
+      valor_servicios_dia = servicios_dia|>Enum.map(&calcular_valor_servicio/1)|> Enum.sum()
+      bonificacion_dia = calcular_bonificacion_dia(servicios_dia)
+
+      %{
+        dia: dia,
+        kilometros: km_dia,
+        valor_servicio: valor_servicios_dia,
+        bonificacion: bonificacion_dia
+      }
+    end)
+    |> Util2.ordenar(:asc, & &1.dia)
+  end
