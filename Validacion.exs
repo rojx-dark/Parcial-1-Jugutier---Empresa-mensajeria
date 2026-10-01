@@ -71,6 +71,28 @@ defmodule Validacion do
     end
   end
 
+  # Regla 4: Los kilómetros son un número mayor que 0 y máximo 45
+  defp verificar_kilometros(servicio) do
+    valido = is_number(servicio.kilometros) and servicio.kilometros > 0 and servicio.kilometros <= @max_km_servicio
+
+    if valido do
+      {:ok, servicio}
+    else
+      {:error, :kilometros_fuera_de_rango}
+    end
+  end
+
+  # Regla 5: El retraso es numérico y se encuentra entre -30 y 180 minutos
+  defp verificar_retraso(servicio) do
+    valido = is_number(servicio.retraso) and servicio.retraso >= -30 and servicio.retraso <= 180
+
+    if valido do
+      {:ok, servicio}
+    else
+      {:error, :retraso_invalido}
+    end
+  end
+
   # Funciones Publicas de acceso a constantes
 
   @doc "Retorna la tarifa base por kilómetro"
