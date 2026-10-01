@@ -1,3 +1,5 @@
+# Integrantes: ______
+
 defmodule Validacion do
   @moduledoc """
   Validación de los servicios registrados por los repartidores.
@@ -38,6 +40,34 @@ defmodule Validacion do
     end
   end
 
+  @doc """
+  Valida todos los servicios y los separa en válidos y rechazados.
+
+  ## Parámetros
+
+  - `servicios`: lista de servicios sin validar.
+  - `repartidores`: lista de repartidores, cada uno con `:codigo`.
+  - `zonas`: lista de zonas, cada una con `:id`.
+
+  ## Retorno
+
+  Una tupla `{validos, rechazados}`, donde `validos` es la lista de
+  servicios válidos y `rechazados` es una lista de tuplas
+  `{servicio, motivo}`.
+  """
+
+  def separar_servicios(servicios, repartidores, zonas) do
+    resultados =
+      Enum.map(servicios, fn servicio ->
+        {servicio, validar_servicio(servicio, repartidores, zonas)}
+      end)
+
+    validos = for {_servicio, {:ok, servicio}} <- resultados, do: servicio
+    rechazados = for {servicio, {:error, motivo}} <- resultados, do: {servicio, motivo}
+
+    {validos, rechazados}
+  end
+
   # Regla 1: el repartidor debe existir.
   defp validar_repartidor(servicio, repartidores) do
     codigo = Map.get(servicio, :repartidor)
@@ -72,22 +102,30 @@ defmodule Validacion do
   end
 
   # Regla 4: Los kilómetros son un número mayor que 0 y máximo 45
-  defp verificar_kilometros(servicio) do
-    valido = is_number(servicio.kilometros) and servicio.kilometros > 0 and servicio.kilometros <= @max_km_servicio
+
+  defp validar_kilometros(servicio) do
+    # CORREGIDO: Map.get en lugar de servicio.kilometros, para no fallar si falta la clave
+    kilometros = Map.get(servicio, :kilometros)
+    valido = is_number(kilometros) and kilometros > 0 and kilometros <= @max_km_servicio
 
     if valido do
-      {:ok, servicio}
+
+      :ok
     else
       {:error, :kilometros_fuera_de_rango}
     end
   end
 
   # Regla 5: El retraso es numérico y se encuentra entre -30 y 180 minutos
-  defp verificar_retraso(servicio) do
-    valido = is_number(servicio.retraso) and servicio.retraso >= -30 and servicio.retraso <= 180
+
+  defp validar_retraso(servicio) do
+
+    retraso = Map.get(servicio, :retraso)
+    valido = is_number(retraso) and retraso >= -30 and retraso <= 180
 
     if valido do
-      {:ok, servicio}
+     
+      :ok
     else
       {:error, :retraso_invalido}
     end
