@@ -30,9 +30,15 @@ defmodule Datos do
       %{id: "Z4", nombre: "Oriente",  area: 12.5}
     ]
   end
-end
 
-def servicios do
+  # ============================================================
+  # SERVICIOS
+  # 85 servicios válidos y 10 inválidos
+  # ============================================================
+  @doc """
+  Lista de servicios registrados durante la semana (válidos e inválidos).
+  """
+  def servicios do
     [
       # ----------------------------------------------------------
       # DÍA 1 — 14 servicios válidos
@@ -112,4 +118,75 @@ def servicios do
       %{repartidor: "M08", zona: "Z4", dia: 4, kilometros: 20,   retraso: 8},
       %{repartidor: "M09", zona: "Z1", dia: 4, kilometros: 25,   retraso: 22},
       %{repartidor: "M10", zona: "Z2", dia: 4, kilometros: 18,   retraso: -10},
-    ] end
+
+      # ----------------------------------------------------------
+      # DÍA 5 — 14 servicios válidos
+      # M03: 45+38 = 83 km → BONIFICACIÓN
+      # M07: 40+42 = 82 km → BONIFICACIÓN
+      # ----------------------------------------------------------
+      %{repartidor: "M03", zona: "Z1", dia: 5, kilometros: 45,   retraso: -15},
+      %{repartidor: "M03", zona: "Z3", dia: 5, kilometros: 38,   retraso: 5},
+      %{repartidor: "M04", zona: "Z3", dia: 5, kilometros: 30,   retraso: 0},
+      %{repartidor: "M04", zona: "Z4", dia: 5, kilometros: 28,   retraso: 20},
+      %{repartidor: "M05", zona: "Z1", dia: 5, kilometros: 22,   retraso: 10},
+      %{repartidor: "M05", zona: "Z3", dia: 5, kilometros: 18,   retraso: -5},
+      %{repartidor: "M06", zona: "Z2", dia: 5, kilometros: 35,   retraso: 40},
+      %{repartidor: "M06", zona: "Z4", dia: 5, kilometros: 30,   retraso: 0},
+      %{repartidor: "M07", zona: "Z2", dia: 5, kilometros: 40,   retraso: -18},
+      %{repartidor: "M07", zona: "Z4", dia: 5, kilometros: 42,   retraso: 2},
+      %{repartidor: "M08", zona: "Z3", dia: 5, kilometros: 25,   retraso: 12},
+      %{repartidor: "M09", zona: "Z4", dia: 5, kilometros: 20,   retraso: -7},
+      %{repartidor: "M10", zona: "Z3", dia: 5, kilometros: 28,   retraso: 3},
+      %{repartidor: "M10", zona: "Z4", dia: 5, kilometros: 22,   retraso: 15},
+
+      # ----------------------------------------------------------
+      # DÍA 6 — 15 servicios válidos
+      # Ningún repartidor supera 80 km en este día
+      # ----------------------------------------------------------
+      %{repartidor: "M01", zona: "Z2", dia: 6, kilometros: 35,   retraso: 0},
+      %{repartidor: "M01", zona: "Z4", dia: 6, kilometros: 38,   retraso: -5},
+      %{repartidor: "M02", zona: "Z1", dia: 6, kilometros: 30,   retraso: 25},
+      %{repartidor: "M02", zona: "Z3", dia: 6, kilometros: 28,   retraso: -10},
+      %{repartidor: "M03", zona: "Z2", dia: 6, kilometros: 22,   retraso: 8},
+      %{repartidor: "M03", zona: "Z4", dia: 6, kilometros: 20,   retraso: 3},
+      %{repartidor: "M04", zona: "Z1", dia: 6, kilometros: 18,   retraso: -20},
+      %{repartidor: "M05", zona: "Z2", dia: 6, kilometros: 32,   retraso: 15},
+      %{repartidor: "M05", zona: "Z4", dia: 6, kilometros: 30,   retraso: 0},
+      %{repartidor: "M06", zona: "Z1", dia: 6, kilometros: 25,   retraso: 50},
+      %{repartidor: "M07", zona: "Z3", dia: 6, kilometros: 28,   retraso: -3},
+      %{repartidor: "M08", zona: "Z1", dia: 6, kilometros: 20,   retraso: 5},
+      %{repartidor: "M09", zona: "Z2", dia: 6, kilometros: 35,   retraso: 20},
+      %{repartidor: "M09", zona: "Z3", dia: 6, kilometros: 30,   retraso: -8},
+      %{repartidor: "M10", zona: "Z1", dia: 6, kilometros: 15,   retraso: 10},
+
+      # ==============================================================
+      # SERVICIOS INVÁLIDOS — 10 en total (2 por cada motivo)
+      # ==============================================================
+
+      # Motivo 1: :repartidor_desconocido
+      # El código del repartidor no existe en la lista
+      %{repartidor: "M99", zona: "Z1", dia: 1, kilometros: 20,   retraso: 5},
+      %{repartidor: "M00", zona: "Z2", dia: 2, kilometros: 15,   retraso: 0},
+
+      # Motivo 2: :zona_desconocida
+      # El id de la zona no existe en la lista
+      %{repartidor: "M01", zona: "Z5", dia: 1, kilometros: 18,   retraso: 3},
+      %{repartidor: "M02", zona: "Z9", dia: 3, kilometros: 25,   retraso: 10},
+
+      # Motivo 3: :dia_invalido
+      # El día está fuera del rango 1..6
+      %{repartidor: "M03", zona: "Z1", dia: 7, kilometros: 20,   retraso: 5},
+      %{repartidor: "M04", zona: "Z2", dia: 0, kilometros: 15,   retraso: 0},
+
+      # Motivo 4: :kilometros_fuera_de_rango
+      # Kilómetros <= 0 o > 45
+      %{repartidor: "M05", zona: "Z3", dia: 2, kilometros: 50,   retraso: 5},
+      %{repartidor: "M06", zona: "Z4", dia: 4, kilometros: 0,    retraso: 0},
+
+      # Motivo 5: :retraso_invalido
+      # Retraso fuera del rango -30..180
+      %{repartidor: "M07", zona: "Z1", dia: 3, kilometros: 20,   retraso: 185},
+      %{repartidor: "M08", zona: "Z2", dia: 5, kilometros: 18,   retraso: -35}
+    ]
+  end
+end
