@@ -63,7 +63,6 @@ defmodule Calculos do
   # --------------------------------------------------
   # 2. BONIFICACIÓN POR PRODUCTIVIDAD
   # --------------------------------------------------
-  # CORREGIDO: la línea de guiones no tenía el # al inicio
 
   @doc """
   Calcula la bonificación diaria de un repartidor en un día específico.
@@ -109,14 +108,14 @@ defmodule Calculos do
   """
   def calcular_alquiler(repartidor, servicios_validos) do
     if repartidor.bicicleta do
+      servicios_rep = Enum.filter(servicios_validos, fn s -> s.repartidor == repartidor.codigo end)
+
+      # Un día trabajado es un día (1..6) con al menos un servicio válido
       dias_trabajados =
-        servicios_validos
-        |> Enum.filter(fn s -> s.repartidor == repartidor.codigo end)
-        |> Enum.map(& &1.dia)
-        |> Enum.uniq()
+        1..6
+        |> Enum.filter(fn dia -> Enum.any?(servicios_rep, fn s -> s.dia == dia end) end)
         |> length()
 
-      # CORREGIDO: el nombre era alquiler_bileta
       dias_trabajados * Validacion.alquiler_bicicleta()
     else
       0
@@ -146,10 +145,8 @@ defmodule Calculos do
       neto:            valor_servicios + bonificaciones - alquiler
     }
   """
-  def calcular_liquidacion(repartidor, servicios_validos) do
-    # CORREGIDO: se comparaba repartidor == repartidor.codigo; debe ser s.repartidor
+    def calcular_liquidacion(repartidor, servicios_validos) do
     servicios_rep = Enum.filter(servicios_validos, fn s -> s.repartidor == repartidor.codigo end)
-    servicios_por_dia = Enum.group_by(servicios_rep, & &1.dia)
 
     km_totales =
       servicios_rep
@@ -158,16 +155,19 @@ defmodule Calculos do
 
     total_servicios =
       servicios_rep
-      # CORREGIDO: la función se llama valor_servicio, no calcular_valor_servicio
       |> Enum.map(&valor_servicio/1)
       |> Enum.sum()
 
+    # La bonificación se calcula día por día; un día sin servicios da 0
     total_bonificaciones =
-      servicios_por_dia
-      |> Enum.map(fn {_dia, servicios_dia} -> calcular_bonificacion_dia(servicios_dia) end)
+      1..6
+      |> Enum.map(fn dia ->
+        servicios_rep
+        |> Enum.filter(fn s -> s.dia == dia end)
+        |> calcular_bonificacion_dia()
+      end)
       |> Enum.sum()
 
-    # CORREGIDO: el nombre era caluclar_alquiler
     alquiler = calcular_alquiler(repartidor, servicios_validos)
     neto = total_servicios + total_bonificaciones - alquiler
 
@@ -194,7 +194,7 @@ defmodule Calculos do
   """
   def calcular_liquidacion_todos(repartidores, servicios_validos) do
     # Aplica calcular_liquidacion a cada repartidor
-    # CORREGIDO: el Enum.map estaba incompleto, faltaba la función
+
     Enum.map(repartidores, fn repartidor ->
       calcular_liquidacion(repartidor, servicios_validos)
     end)
@@ -219,25 +219,24 @@ defmodule Calculos do
       bonificacion:   bonificación obtenida ese día
     }
   """
-  def calcular_detalle_por_dia(repartidor, servicios_validos) do
-    servicios_validos
-    |> Enum.filter(fn s -> s.repartidor == repartidor.codigo end)
-    |> Enum.group_by(& &1.dia)
-    # CORREGIDO: había un "ene" suelto después de la flecha
-    |> Enum.map(fn {dia, servicios_dia} ->
-      km_dia = servicios_dia |> Enum.map(& &1.kilometros) |> Enum.sum()
-      # CORREGIDO: calcular_valor_servicio no existe, se llama valor_servicio
-      valor_servicios_dia = servicios_dia |> Enum.map(&valor_servicio/1) |> Enum.sum()
-      bonificacion_dia = calcular_bonificacion_dia(servicios_dia)
+    def calcular_detalle_por_dia(repartidor, servicios_validos) do
+    servicios_rep = Enum.filter(servicios_validos, fn s -> s.repartidor == repartidor.codigo end)
 
+    # Se recorren los días en orden (1..6), así el resultado ya sale ordenado
+    1..6
+    |> Enum.map(fn dia ->
+      {dia, Enum.filter(servicios_rep, fn s -> s.dia == dia end)}
+    end)
+    # Solo los días con al menos un servicio válido
+    |> Enum.filter(fn {_dia, servicios_dia} -> servicios_dia != [] end)
+    |> Enum.map(fn {dia, servicios_dia} ->
       %{
         dia: dia,
-        kilometros: km_dia,
-        # CORREGIDO: la clave era valor_servicio; la documentación dice valor_servicios
-        valor_servicios: valor_servicios_dia,
-        bonificacion: bonificacion_dia
+        kilometros: servicios_dia |> Enum.map(& &1.kilometros) |> Enum.sum(),
+        valor_servicios: servicios_dia |> Enum.map(&valor_servicio/1) |> Enum.sum(),
+        bonificacion: calcular_bonificacion_dia(servicios_dia)
       }
     end)
+  end
     |> Util2.ordenar(:asc, & &1.dia)
   end
-end

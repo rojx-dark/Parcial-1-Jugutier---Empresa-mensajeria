@@ -3,7 +3,18 @@
 defmodule Reportes do
   @moduledoc """
   Módulo que genera los 8 reportes del sistema.
+
+  IMPORTANTE: los reportes se llaman en orden R1 → R8 desde main.exs.
+  Todas las funciones hacen IO (son IMPURAS), pero calculan con funciones puras.
   """
+
+  @motivos [
+    :repartidor_desconocido,
+    :zona_desconocida,
+    :dia_invalido,
+    :kilometros_fuera_de_rango,
+    :retraso_invalido
+  ]
 
   # --------------------------------------------------
   # R1 — Servicios rechazados
@@ -16,16 +27,11 @@ defmodule Reportes do
   Recibe:
     - rechazados: lista de tuplas {servicio, motivo}, como la que
       devuelve Validacion.separar_servicios/3
-      Ejemplo: [{%{repartidor: "M99", ...}, :repartidor_desconocido}, ...]
-
-  Debe mostrar:
-    - Cada servicio rechazado con su motivo
-    - Al final: cuántas veces aparece cada motivo
   """
   def r1(rechazados) do
     mostrar("\n=== R1: Servicios rechazados ===")
 
-    # Paso 1: muestra cada servicio con su motivo (Enum.each)
+    # Paso 1: muestra cada servicio con su motivo
     Enum.each(rechazados, fn {servicio, motivo} ->
       mostrar(
         "Repartidor: #{servicio.repartidor} | Zona: #{servicio.zona} | " <>
@@ -34,16 +40,11 @@ defmodule Reportes do
       )
     end)
 
-    # Paso 2: cuenta por motivo con Enum.frequencies
-    conteo =
-      rechazados
-      |> Enum.map(fn {_servicio, motivo} -> motivo end)
-      |> Enum.frequencies()
-
-    # Paso 3: muestra el conteo
+    # Paso 2 y 3: cuenta cuántos rechazos hay por cada motivo
     mostrar("\nRechazos por motivo:")
 
-    Enum.each(conteo, fn {motivo, cantidad} ->
+    Enum.each(@motivos, fn motivo ->
+      cantidad = length(Enum.filter(rechazados, fn {_servicio, m} -> m == motivo end))
       mostrar("  #{motivo}: #{cantidad}")
     end)
   end
@@ -67,15 +68,12 @@ defmodule Reportes do
   def r2(servicios_validos, zonas) do
     mostrar("\n=== R2: Kilómetros por zona y densidad ===")
 
-    # Paso 1: agrupa servicios por zona
-    por_zona = Enum.group_by(servicios_validos, & &1.zona)
-
-    # Paso 2: para cada zona calcula km totales y densidad
+    # Paso 1 y 2: para cada zona suma los km de sus servicios y calcula la densidad
     zonas
     |> Enum.map(fn zona ->
       km =
-        por_zona
-        |> Map.get(zona.id, [])
+        servicios_validos
+        |> Enum.filter(fn s -> s.zona == zona.id end)
         |> Enum.map(& &1.kilometros)
         |> Enum.sum()
 
@@ -116,15 +114,12 @@ defmodule Reportes do
 
     meta = Validacion.meta_diaria_km()
 
-    # Paso 1: agrupa servicios por día
-    por_dia = Enum.group_by(servicios_validos, & &1.dia)
-
-    # Paso 2: para los 6 días (1..6) calcula km totales (0 si no hay servicios)
+    # Paso 1 y 2: para los 6 días suma los km (0 si no hay servicios)
     km_por_dia =
       for dia <- 1..6, into: %{} do
         km =
-          por_dia
-          |> Map.get(dia, [])
+          servicios_validos
+          |> Enum.filter(fn s -> s.dia == dia end)
           |> Enum.map(& &1.kilometros)
           |> Enum.sum()
 
@@ -158,15 +153,6 @@ defmodule Reportes do
   Muestra la liquidación de todos los repartidores, numerada y ordenada
   de mayor a menor por neto.
 
-  Incluye por repartidor:
-    - Número de posición
-    - Nombre y código
-    - Kilómetros totales
-    - Valor de servicios
-    - Bonificaciones
-    - Alquiler
-    - Neto
-
   Recibe:
     - liquidaciones: lista de mapas retornada por Calculos.calcular_liquidacion_todos/2
   """
@@ -174,12 +160,11 @@ defmodule Reportes do
     mostrar("\n=== R4: Liquidación de repartidores ===")
 
     # Paso 1: ordena liquidaciones por neto desc
+    # Paso 2 y 3: Enum.reduce lleva el número de posición como acumulador
+    # (empieza en 1 y sube de a uno) mientras imprime cada repartidor
     liquidaciones
     |> Util2.ordenar(:desc, & &1.neto)
-    # Paso 2: usa Enum.with_index(1) para numerar
-    |> Enum.with_index(1)
-    # Paso 3: imprime cada repartidor con todos sus datos
-    |> Enum.each(fn {l, posicion} ->
+    |> Enum.reduce(1, fn l, posicion ->
       mostrar(
         "#{posicion}. #{l.nombre} (#{l.codigo}) | Km: #{l.kilometros} | " <>
           "Servicios: $#{redondear(l.valor_servicios)} | " <>
@@ -187,6 +172,8 @@ defmodule Reportes do
           "Alquiler: $#{redondear(l.alquiler)} | " <>
           "Neto: $#{redondear(l.neto)}"
       )
+
+      posicion + 1
     end)
   end
 
@@ -206,22 +193,32 @@ defmodule Reportes do
   def r5(servicios_validos, repartidores) do
     mostrar("\n=== R5: Repartidor con más km por día ===")
 
-    # Paso 1: agrupa servicios por día
-    por_dia = Enum.group_by(servicios_validos, & &1.dia)
+    # Paso 1: días que tienen al menos un servicio válido
+    dias_con_servicios =
+      Enum.filter(1..6, fn dia -> Enum.any?(servicios_validos, fn s -> s.dia == dia end) end)
 
-    # Paso 2 y 3: para cada día con servicios, suma km por repartidor
+    # Paso 2 y 3: para cada día suma los km de cada repartidor
     # y encuentra el máximo y los empatados
     ganadores_por_dia =
-      for dia <- 1..6, Map.has_key?(por_dia, dia) do
+      for dia <- dias_con_servicios do
+        servicios_dia = Enum.filter(servicios_validos, fn s -> s.dia == dia end)
+
         km_por_repartidor =
-          por_dia
-          |> Map.get(dia)
-          |> Enum.group_by(& &1.repartidor)
-          |> Enum.map(fn {codigo, servicios} ->
-            {codigo, servicios |> Enum.map(& &1.kilometros) |> Enum.sum()}
+          Enum.map(repartidores, fn r ->
+            km =
+              servicios_dia
+              |> Enum.filter(fn s -> s.repartidor == r.codigo end)
+              |> Enum.map(& &1.kilometros)
+              |> Enum.sum()
+
+            {r.codigo, km}
           end)
 
-        {_codigo, maximo} = Enum.max_by(km_por_repartidor, fn {_c, km} -> km end)
+        # El primero de la lista ordenada de mayor a menor tiene el máximo
+        [{_codigo, maximo} | _resto] =
+          Util2.ordenar(km_por_repartidor, :desc, fn {_c, km} -> km end)
+
+        # Todos los que igualan el máximo (empates)
         ganadores = for {codigo, km} <- km_por_repartidor, km == maximo, do: codigo
 
         {dia, maximo, ganadores}
@@ -233,16 +230,18 @@ defmodule Reportes do
       mostrar("Día #{dia}: #{Enum.join(nombres, ", ")} con #{maximo} km")
     end)
 
-    # Paso 5: cuenta quién ganó más días y muéstralo
-    victorias =
-      ganadores_por_dia
-      |> Enum.flat_map(fn {_dia, _maximo, ganadores} -> ganadores end)
-      |> Enum.frequencies()
-
-    if victorias == %{} do
+    # Paso 5: cuenta en cuántos días fue primero cada repartidor
+    if ganadores_por_dia == [] do
       mostrar("No hubo servicios válidos.")
     else
-      {_codigo, mas_dias} = Enum.max_by(victorias, fn {_c, dias} -> dias end)
+      victorias =
+        Enum.map(repartidores, fn r ->
+          dias = length(Enum.filter(ganadores_por_dia, fn {_d, _m, g} -> r.codigo in g end))
+          {r.codigo, dias}
+        end)
+
+      [{_codigo, mas_dias} | _resto] = Util2.ordenar(victorias, :desc, fn {_c, dias} -> dias end)
+
       primeros = for {codigo, dias} <- victorias, dias == mas_dias, do: codigo
       nombres = Enum.map(primeros, fn codigo -> nombre_de(codigo, repartidores) end)
 
@@ -270,12 +269,14 @@ defmodule Reportes do
   def r6(servicios_validos, repartidores) do
     mostrar("\n=== R6: Mejor puntualidad ponderada ===")
 
-    # Paso 1: agrupa servicios por código de repartidor
-    # Paso 2: filtra grupos con length >= 3
-    # Paso 3: calcula retraso ponderado para cada grupo
+    # Paso 1: servicios de cada repartidor
+    # Paso 2: se quedan solo los que tienen al menos 3
+    # Paso 3: se calcula el retraso ponderado de cada uno
     candidatos =
-      servicios_validos
-      |> Enum.group_by(& &1.repartidor)
+      repartidores
+      |> Enum.map(fn r ->
+        {r.codigo, Enum.filter(servicios_validos, fn s -> s.repartidor == r.codigo end)}
+      end)
       |> Enum.filter(fn {_codigo, servicios} -> length(servicios) >= 3 end)
       |> Enum.map(fn {codigo, servicios} ->
         suma_ponderada = servicios |> Enum.map(fn s -> s.retraso * s.kilometros end) |> Enum.sum()
@@ -283,12 +284,12 @@ defmodule Reportes do
         {codigo, suma_ponderada / suma_km, length(servicios)}
       end)
 
-    # Paso 4: encuentra el mínimo con Enum.min_by
-    # Paso 5: busca el nombre del repartidor ganador e imprímelo
+    # Paso 4 y 5: el menor retraso ponderado es el primero al ordenar de menor a mayor
     if candidatos == [] do
       mostrar("Ningún repartidor tiene al menos 3 servicios válidos.")
     else
-      {codigo, ponderado, cantidad} = Enum.min_by(candidatos, fn {_c, p, _n} -> p end)
+      [{codigo, ponderado, cantidad} | _resto] =
+        Util2.ordenar(candidatos, :asc, fn {_c, p, _n} -> p end)
 
       mostrar(
         "Mejor puntualidad: #{nombre_de(codigo, repartidores)} (#{codigo}) | " <>
@@ -349,25 +350,14 @@ defmodule Reportes do
   def r8(servicios_validos, repartidores, zonas) do
     mostrar("\n=== R8: Repartidores en todas las zonas ===")
 
-    # Paso 1: crea el MapSet de ids de zonas requeridas
-    requeridas = MapSet.new(Enum.map(zonas, & &1.id))
-
-    # Paso 2: agrupa servicios por repartidor
-    por_repartidor = Enum.group_by(servicios_validos, & &1.repartidor)
-
-    # Paso 3: para cada repartidor verifica si cubrió todas las zonas
+    # Un repartidor cumple si, para TODAS las zonas, tiene AL MENOS UN servicio en ella
     cumplen =
-      Enum.filter(repartidores, fn repartidor ->
-        trabajadas =
-          por_repartidor
-          |> Map.get(repartidor.codigo, [])
-          |> Enum.map(& &1.zona)
-          |> MapSet.new()
-
-        MapSet.subset?(requeridas, trabajadas)
+      Enum.filter(repartidores, fn r ->
+        Enum.all?(zonas, fn zona ->
+          Enum.any?(servicios_validos, fn s -> s.repartidor == r.codigo and s.zona == zona.id end)
+        end)
       end)
 
-    # Paso 4: filtra y muestra los que cumplen
     if cumplen == [] do
       mostrar("Ningún repartidor trabajó en todas las zonas.")
     else
