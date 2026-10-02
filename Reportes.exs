@@ -1,10 +1,8 @@
-# Integrantes: ______
-
-defmodule Reportes do
+efmodule Reportes do
   @moduledoc """
   Módulo que genera los 8 reportes del sistema.
 
-  IMPORTANTE: los reportes se llaman en orden R1 → R8 desde main.exs.
+  Los reportes se llaman en orden R1 -> R8 desde main.exs.
   Todas las funciones hacen IO (son IMPURAS), pero calculan con funciones puras.
   """
 
@@ -84,7 +82,7 @@ defmodule Reportes do
     # Paso 4: imprime cada zona con sus datos
     |> Enum.each(fn fila ->
       mostrar(
-        "#{fila.zona.id} #{String.pad_trailing(fila.zona.nombre, 8)} | " <>
+        "#{fila.zona.id} #{fila.zona.nombre} | " <>
           "Km: #{fila.kilometros} | Área: #{fila.zona.area} km² | " <>
           "Densidad: #{Float.round(fila.densidad, 2)} km/km²"
       )
@@ -106,13 +104,13 @@ defmodule Reportes do
   Recibe:
     - servicios_validos: lista de todos los servicios válidos
 
-  Retorna el mapa de km por día (necesario para la investigación).
+  Retorna el mapa de km por día (necesario para la investigación):
     %{1 => 620.5, 2 => 480.0, ...}
   """
   def r3(servicios_validos) do
     mostrar("\n=== R3: Kilómetros por día y meta ===")
 
-    meta = Validacion.meta_diaria_km()
+    meta = Calculos.meta_diaria()
 
     # Paso 1 y 2: para los 6 días suma los km (0 si no hay servicios)
     km_por_dia =
@@ -133,10 +131,12 @@ defmodule Reportes do
       mostrar("Día #{dia}: #{km} km -> #{estado}")
     end)
 
-    # Paso 4: ¿todos los días cumplen la meta?
-    todos = Enum.all?(km_por_dia, fn {_dia, km} -> km >= meta end)
-    # Paso 5: ¿al menos un día cumple la meta?
-    alguno = Enum.any?(km_por_dia, fn {_dia, km} -> km >= meta end)
+    # Paso 4: ¿todos los días cumplen la meta? Sí, si ningún día queda por debajo
+    dias_bajo_meta = Enum.filter(km_por_dia, fn {_dia, km} -> km < meta end)
+    todos = dias_bajo_meta == []
+    # Paso 5: ¿al menos un día cumple la meta? Sí, si hay algún día que la alcanzó
+    dias_con_meta = Enum.filter(km_por_dia, fn {_dia, km} -> km >= meta end)
+    alguno = dias_con_meta != []
 
     mostrar("¿Meta alcanzada todos los días? #{if todos, do: "Sí", else: "No"}")
     mostrar("¿Meta alcanzada al menos un día? #{if alguno, do: "Sí", else: "No"}")
@@ -154,7 +154,8 @@ defmodule Reportes do
   de mayor a menor por neto.
 
   Recibe:
-    - liquidaciones: lista de mapas retornada por Calculos.calcular_liquidacion_todos/2
+    - liquidaciones: lista de mapas retornada por
+      Calculos.calcular_liquidacion_todos/2
   """
   def r4(liquidaciones) do
     mostrar("\n=== R4: Liquidación de repartidores ===")
@@ -195,7 +196,9 @@ defmodule Reportes do
 
     # Paso 1: días que tienen al menos un servicio válido
     dias_con_servicios =
-      Enum.filter(1..6, fn dia -> Enum.any?(servicios_validos, fn s -> s.dia == dia end) end)
+      Enum.filter(1..6, fn dia ->
+        Enum.filter(servicios_validos, fn s -> s.dia == dia end) != []
+      end)
 
     # Paso 2 y 3: para cada día suma los km de cada repartidor
     # y encuentra el máximo y los empatados
@@ -308,9 +311,9 @@ defmodule Reportes do
   y el costo promedio por kilómetro.
 
   Fórmula:
-    total_pagado   = suma de todos los netos de la liquidación
-    km_totales     = suma de todos los kilómetros de la liquidación
-    costo_por_km   = total_pagado / km_totales
+    total_pagado = suma de todos los netos de la liquidación
+    km_totales   = suma de todos los kilómetros de la liquidación
+    costo_por_km = total_pagado / km_totales
 
   Recibe:
     - liquidaciones: lista de mapas de liquidación
@@ -350,12 +353,20 @@ defmodule Reportes do
   def r8(servicios_validos, repartidores, zonas) do
     mostrar("\n=== R8: Repartidores en todas las zonas ===")
 
-    # Un repartidor cumple si, para TODAS las zonas, tiene AL MENOS UN servicio en ella
+    # Un repartidor cumple si NO le queda ninguna zona sin servicios válidos
     cumplen =
       Enum.filter(repartidores, fn r ->
-        Enum.all?(zonas, fn zona ->
-          Enum.any?(servicios_validos, fn s -> s.repartidor == r.codigo and s.zona == zona.id end)
-        end)
+        zonas_sin_servicio =
+          Enum.filter(zonas, fn zona ->
+            servicios_en_zona =
+              Enum.filter(servicios_validos, fn s ->
+                s.repartidor == r.codigo and s.zona == zona.id
+              end)
+
+            servicios_en_zona == []
+          end)
+
+        zonas_sin_servicio == []
       end)
 
     if cumplen == [] do
@@ -378,9 +389,10 @@ defmodule Reportes do
 
   # Busca el nombre de un repartidor por su código.
   defp nombre_de(codigo, repartidores) do
-    case Enum.find(repartidores, fn r -> r.codigo == codigo end) do
-      nil -> codigo
-      repartidor -> repartidor.nombre
+    case Enum.filter(repartidores, fn r -> r.codigo == codigo end) do
+      [] -> codigo
+      [repartidor | _resto] -> repartidor.nombre
     end
   end
 end
+ 

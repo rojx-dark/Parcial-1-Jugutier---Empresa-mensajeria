@@ -1,14 +1,10 @@
-# Integrantes:
-# - Nombre Apellido
-# - Nombre Apellido
-
 # Carga todos los módulos en orden (dependencias primero)
-Code.require_file("Util2.exs",         __DIR__)
-Code.require_file("Datos.exs",         __DIR__)
-Code.require_file("Validacion.exs",    __DIR__)
-Code.require_file("Calculos.exs",      __DIR__)
-Code.require_file("Reportes.exs",      __DIR__)
-Code.require_file("Interaccion.exs",   __DIR__)
+Code.require_file("Util2.exs", __DIR__)
+Code.require_file("Datos.exs", __DIR__)
+Code.require_file("Validacion.exs", __DIR__)
+Code.require_file("Calculos.exs", __DIR__)
+Code.require_file("Reportes.exs", __DIR__)
+Code.require_file("Interaccion.exs", __DIR__)
 Code.require_file("Investigacion.exs", __DIR__)
 
 defmodule Main do
@@ -17,9 +13,12 @@ defmodule Main do
     1. Carga los datos
     2. Valida todos los servicios
     3. Solicita el servicio adicional
-    4. Genera los 8 reportes en orden
-    5. Muestra el comprobante de un repartidor
-    6. Ejecuta las mediciones de la investigación
+    4. Calcula la liquidación
+    5. Genera los 8 reportes en orden
+    6. Muestra el comprobante de un repartidor
+    7. Ejecuta la investigación (ranking, Map.merge/3 y mediciones)
+
+  Este módulo no contiene lógica de negocio: solo coordina a los demás.
   """
 
   def main do
@@ -27,8 +26,8 @@ defmodule Main do
     # PASO 1: Carga de datos
     # ------------------------------------------------
     repartidores = Datos.repartidores()
-    zonas        = Datos.zonas()
-    servicios    = Datos.servicios()
+    zonas = Datos.zonas()
+    servicios = Datos.servicios()
 
     # ------------------------------------------------
     # PASO 2: Validación de todos los servicios
@@ -54,7 +53,7 @@ defmodule Main do
     Reportes.r1(rechazados)
     Reportes.r2(validos, zonas)
 
-    # r3 retorna el mapa de km por día, guárdalo para la investigación
+    # r3 retorna el mapa de km por día, se guarda para la investigación
     km_por_dia = Reportes.r3(validos)
 
     Reportes.r4(liquidaciones)
@@ -69,8 +68,10 @@ defmodule Main do
     Interaccion.mostrar_comprobante(validos, repartidores)
 
     # ------------------------------------------------
-    # PASO 7: Investigación — mediciones y Map.merge/3
+    # PASO 7: Investigación
     # ------------------------------------------------
+    Investigacion.mostrar_ranking(liquidaciones)
+
     empresa_aliada = %{1 => 580.5, 2 => 430, 3 => 510, 5 => 625, 7 => 180}
 
     Util2.mostrar("\n=== Investigación C2: Map.merge/3 ===", :mensaje)
@@ -83,3 +84,4 @@ end
 
 # Ejecuta el programa
 Main.main()
+ 

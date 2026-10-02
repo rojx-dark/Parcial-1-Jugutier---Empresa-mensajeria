@@ -1,5 +1,3 @@
-# Integrantes: ______
-
 defmodule Calculos do
   @moduledoc """
   Cálculos de la liquidación semanal: valor de los servicios,
@@ -19,9 +17,12 @@ defmodule Calculos do
   @bonificacion 15_000
   @alquiler_dia 10_000
 
-  # -----------------------------------
-  # Valor de un servicio
-  # -----------------------------------
+  @doc "Meta diaria de kilómetros de la empresa (se usa en el R3)."
+  def meta_diaria, do: @meta_diaria
+
+  # --------------------------------------------------
+  # 1. VALOR DE UN SERVICIO
+  # --------------------------------------------------
 
   @doc """
   Calcula el valor de un servicio válido.
@@ -70,8 +71,8 @@ defmodule Calculos do
   Recibe la lista de servicios válidos de UN solo repartidor en UN solo día.
 
   Regla:
-    Si la suma de kilómetros >= 80 → bonificación de $15.000
-    Si no                          → bonificación de $0
+    Si la suma de kilómetros >= 80 -> bonificación de $15.000
+    Si no                          -> bonificación de $0
 
   Retorna un número (0 o 15_000).
   """
@@ -81,8 +82,8 @@ defmodule Calculos do
       |> Enum.map(& &1.kilometros)
       |> Enum.sum()
 
-    if km_totales >= Validacion.km_bonificacion() do
-      Validacion.bonificacion_dia()
+    if km_totales >= @km_bonificacion do
+      @bonificacion
     else
       0
     end
@@ -110,18 +111,18 @@ defmodule Calculos do
     if repartidor.bicicleta do
       servicios_rep = Enum.filter(servicios_validos, fn s -> s.repartidor == repartidor.codigo end)
 
-      # Un día trabajado es un día (1..6) con al menos un servicio válido
+      # Un día trabajado es un día (1..6) con al menos un servicio válido,
+      # es decir, un día cuya lista de servicios no está vacía
       dias_trabajados =
         1..6
-        |> Enum.filter(fn dia -> Enum.any?(servicios_rep, fn s -> s.dia == dia end) end)
+        |> Enum.filter(fn dia -> Enum.filter(servicios_rep, fn s -> s.dia == dia end) != [] end)
         |> length()
 
-      dias_trabajados * Validacion.alquiler_bicicleta()
+      dias_trabajados * @alquiler_dia
     else
       0
     end
   end
-
 
   # --------------------------------------------------
   # 4. LIQUIDACIÓN POR REPARTIDOR
@@ -136,16 +137,16 @@ defmodule Calculos do
 
   Retorna un mapa con:
     %{
-      codigo:        String,
-      nombre:        String,
-      kilometros:    número total de km recorridos,
+      codigo:          String,
+      nombre:          String,
+      kilometros:      número total de km recorridos,
       valor_servicios: número total en pesos de sus servicios,
       bonificaciones:  número total de bonificaciones recibidas,
       alquiler:        número total descontado por bicicleta,
       neto:            valor_servicios + bonificaciones - alquiler
     }
   """
-    def calcular_liquidacion(repartidor, servicios_validos) do
+  def calcular_liquidacion(repartidor, servicios_validos) do
     servicios_rep = Enum.filter(servicios_validos, fn s -> s.repartidor == repartidor.codigo end)
 
     km_totales =
@@ -190,18 +191,16 @@ defmodule Calculos do
     - servicios_validos: lista de todos los servicios válidos
 
   Retorna una lista de mapas (uno por repartidor), incluyendo
-  los que no tienen servicios (sus valores numéricos deben ser 0).
+  los que no tienen servicios (sus valores numéricos son 0).
   """
   def calcular_liquidacion_todos(repartidores, servicios_validos) do
-    # Aplica calcular_liquidacion a cada repartidor
-
     Enum.map(repartidores, fn repartidor ->
       calcular_liquidacion(repartidor, servicios_validos)
     end)
   end
 
   # --------------------------------------------------
-  # 5. DETALLE POR DÍA (para el comprobante R4 y comprobante)
+  # 5. DETALLE POR DÍA (para el comprobante)
   # --------------------------------------------------
 
   @doc """
@@ -211,15 +210,16 @@ defmodule Calculos do
     - repartidor: mapa del repartidor
     - servicios_validos: lista de todos los servicios válidos
 
-  Retorna una lista de mapas, uno por día trabajado (solo días con servicios válidos):
+  Retorna una lista de mapas, uno por día trabajado (solo días con
+  servicios válidos), ordenada por día:
     %{
-      dia:            número del día,
-      kilometros:     km recorridos ese día,
+      dia:             número del día,
+      kilometros:      km recorridos ese día,
       valor_servicios: valor de los servicios de ese día,
-      bonificacion:   bonificación obtenida ese día
+      bonificacion:    bonificación obtenida ese día
     }
   """
-    def calcular_detalle_por_dia(repartidor, servicios_validos) do
+  def calcular_detalle_por_dia(repartidor, servicios_validos) do
     servicios_rep = Enum.filter(servicios_validos, fn s -> s.repartidor == repartidor.codigo end)
 
     # Se recorren los días en orden (1..6), así el resultado ya sale ordenado
@@ -238,5 +238,4 @@ defmodule Calculos do
       }
     end)
   end
-    |> Util2.ordenar(:asc, & &1.dia)
-  end
+end

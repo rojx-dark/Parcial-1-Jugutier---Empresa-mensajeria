@@ -3,6 +3,9 @@ defmodule Interaccion do
   Módulo que maneja la interacción con el usuario:
     1. Solicitar un servicio adicional antes de los reportes
     2. Mostrar el comprobante de pago de un repartidor al final
+
+  Todas las funciones de este módulo son IMPURAS (leen del teclado
+  e imprimen), pero los cálculos los delegan a Validacion y Calculos.
   """
 
   # --------------------------------------------------
@@ -18,13 +21,13 @@ defmodule Interaccion do
     o Enter para omitir:
 
   Comportamiento:
-    - Si el usuario presiona Enter (cadena vacía) → informa que se omitió, retorna servicios sin cambios
-    - Si ingresa algo → intenta parsearlo y validarlo
+    - Si el usuario presiona Enter (cadena vacía): informa que se omitió
+      y retorna los servicios sin cambios.
+    - Si ingresa algo: lo convierte (formato) y lo valida (reglas).
 
   Retorna la lista de servicios válidos (con o sin el nuevo servicio).
   """
   def agregar_servicio_adicional(servicios_validos, repartidores, zonas) do
-    # CORREGIDO: Util2 en lugar de Util
     Util2.mostrar("\nIngrese un servicio adicional", :mensaje)
     Util2.mostrar("(repartidor;zona;dia;kilometros;retraso)", :mensaje)
     Util2.mostrar("o Enter para omitir:", :mensaje)
@@ -42,10 +45,8 @@ defmodule Interaccion do
     end
   end
 
-  # Procesa la entrada del usuario: parsea, valida e informa el resultado.
+  # Procesa la entrada del usuario: convierte, valida e informa el resultado.
   defp procesar_entrada(entrada, servicios_validos, repartidores, zonas) do
-    # Paso 1: llama a parsear_servicio(entrada)
-    # Paso 2: maneja el resultado con case
     case parsear_servicio(entrada) do
       {:error, :formato_invalido} ->
         Util2.mostrar(
@@ -63,7 +64,7 @@ defmodule Interaccion do
             [servicio_valido | servicios_validos]
 
           {:error, motivo} ->
-            Util2.mostrar("Rechazado: #{motivo}", :mensaje)
+            Util2.mostrar("Servicio rechazado por regla de validación: #{motivo}", :mensaje)
             servicios_validos
         end
     end
@@ -121,43 +122,41 @@ defmodule Interaccion do
     Ingrese el código del repartidor para ver su comprobante:
 
   Comportamiento:
-    - Busca el repartidor en la lista
-    - Si no existe → muestra "Repartidor no encontrado" y continúa
-    - Si existe    → llama a imprimir_comprobante/2
+    - Busca el repartidor en la lista.
+    - Si no existe: muestra "Repartidor no encontrado." y continúa.
+    - Si existe: imprime el comprobante.
 
   Recibe:
-    - servicios_validos: lista de servicios válidos (ya con el adicional si se agregó)
+    - servicios_validos: lista de servicios válidos (ya con el adicional
+      si se agregó)
     - repartidores: lista de repartidores
   """
   def mostrar_comprobante(servicios_validos, repartidores) do
     Util2.mostrar("\nIngrese el código del repartidor para ver su comprobante:", :mensaje)
     codigo = "" |> Util2.ingresar(:texto) |> String.upcase()
 
-    # Busca el repartidor con Enum.find
-    case Enum.find(repartidores, fn r -> r.codigo == codigo end) do
-      # Si nil - informa y continúa
-      nil ->
+    # Se filtran los repartidores con ese código: lista vacía = no existe
+    case Enum.filter(repartidores, fn r -> r.codigo == codigo end) do
+      [] ->
         Util2.mostrar("Repartidor no encontrado.", :mensaje)
 
-      # Si existe - imprime el comprobante
-      repartidor ->
+      [repartidor | _resto] ->
         imprimir_comprobante(repartidor, servicios_validos)
     end
   end
 
   # Imprime el comprobante de pago de un repartidor.
   defp imprimir_comprobante(repartidor, servicios_validos) do
-    # Paso 1: detalle por día (solo días con servicios válidos)
+    # Detalle por día (solo días con servicios válidos) y liquidación total
     detalle = Calculos.calcular_detalle_por_dia(repartidor, servicios_validos)
-    # Paso 2: liquidación del repartidor
     liquidacion = Calculos.calcular_liquidacion(repartidor, servicios_validos)
 
-    # Paso 3: encabezado con nombre y código
+    # Encabezado con nombre y código
     Util2.mostrar("\n=== COMPROBANTE DE PAGO ===", :mensaje)
     Util2.mostrar("Repartidor: #{repartidor.nombre} (#{repartidor.codigo})", :mensaje)
     Util2.mostrar("\nDetalle por día:", :mensaje)
 
-    # Paso 4: un bloque por cada día trabajado
+    # Un bloque por cada día trabajado
     Enum.each(detalle, fn d ->
       Util2.mostrar("  Día #{d.dia}:", :mensaje)
       Util2.mostrar("    Kilómetros: #{d.kilometros}", :mensaje)
@@ -165,7 +164,7 @@ defmodule Interaccion do
       Util2.mostrar("    Bonificación: $#{redondear(d.bonificacion)}", :mensaje)
     end)
 
-    # Paso 5: totales
+    # Totales
     Util2.mostrar("\nTotal valor servicios: $#{redondear(liquidacion.valor_servicios)}", :mensaje)
     Util2.mostrar("Total bonificaciones: $#{redondear(liquidacion.bonificaciones)}", :mensaje)
     Util2.mostrar("Descuento alquiler bicicleta: $#{redondear(liquidacion.alquiler)}", :mensaje)
@@ -175,3 +174,4 @@ defmodule Interaccion do
   # Redondea a 2 decimales. El `* 1.0` evita el error de Float.round con enteros.
   defp redondear(numero), do: Float.round(numero * 1.0, 2)
 end
+ 
