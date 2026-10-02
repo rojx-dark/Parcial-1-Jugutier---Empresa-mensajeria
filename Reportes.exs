@@ -23,11 +23,11 @@ defmodule Reportes do
     - Al final: cuántas veces aparece cada motivo
   """
   def r1(rechazados) do
-    Util.mostrar_mensaje("\n=== R1: Servicios rechazados ===")
+    mostrar("\n=== R1: Servicios rechazados ===")
 
     # Paso 1: muestra cada servicio con su motivo (Enum.each)
     Enum.each(rechazados, fn {servicio, motivo} ->
-      Util.mostrar_mensaje(
+      mostrar(
         "Repartidor: #{servicio.repartidor} | Zona: #{servicio.zona} | " <>
           "Día: #{servicio.dia} | Km: #{servicio.kilometros} | " <>
           "Retraso: #{servicio.retraso} -> #{motivo}"
@@ -41,10 +41,10 @@ defmodule Reportes do
       |> Enum.frequencies()
 
     # Paso 3: muestra el conteo
-    Util.mostrar_mensaje("\nRechazos por motivo:")
+    mostrar("\nRechazos por motivo:")
 
     Enum.each(conteo, fn {motivo, cantidad} ->
-      Util.mostrar_mensaje("  #{motivo}: #{cantidad}")
+      mostrar("  #{motivo}: #{cantidad}")
     end)
   end
 
@@ -65,7 +65,7 @@ defmodule Reportes do
   Fórmula densidad: km_zona / zona.area
   """
   def r2(servicios_validos, zonas) do
-    Util.mostrar_mensaje("\n=== R2: Kilómetros por zona y densidad ===")
+    mostrar("\n=== R2: Kilómetros por zona y densidad ===")
 
     # Paso 1: agrupa servicios por zona
     por_zona = Enum.group_by(servicios_validos, & &1.zona)
@@ -82,10 +82,10 @@ defmodule Reportes do
       %{zona: zona, kilometros: km, densidad: km / zona.area}
     end)
     # Paso 3: ordena de mayor a menor densidad
-    |> Enum.sort_by(& &1.densidad, :desc)
+    |> Util2.ordenar(:desc, & &1.densidad)
     # Paso 4: imprime cada zona con sus datos
     |> Enum.each(fn fila ->
-      Util.mostrar_mensaje(
+      mostrar(
         "#{fila.zona.id} #{String.pad_trailing(fila.zona.nombre, 8)} | " <>
           "Km: #{fila.kilometros} | Área: #{fila.zona.area} km² | " <>
           "Densidad: #{Float.round(fila.densidad, 2)} km/km²"
@@ -112,7 +112,7 @@ defmodule Reportes do
     %{1 => 620.5, 2 => 480.0, ...}
   """
   def r3(servicios_validos) do
-    Util.mostrar_mensaje("\n=== R3: Kilómetros por día y meta ===")
+    mostrar("\n=== R3: Kilómetros por día y meta ===")
 
     meta = Validacion.meta_diaria_km()
 
@@ -135,7 +135,7 @@ defmodule Reportes do
     Enum.each(1..6, fn dia ->
       km = Map.get(km_por_dia, dia)
       estado = if km >= meta, do: "meta alcanzada", else: "meta NO alcanzada"
-      Util.mostrar_mensaje("Día #{dia}: #{km} km -> #{estado}")
+      mostrar("Día #{dia}: #{km} km -> #{estado}")
     end)
 
     # Paso 4: ¿todos los días cumplen la meta?
@@ -143,8 +143,8 @@ defmodule Reportes do
     # Paso 5: ¿al menos un día cumple la meta?
     alguno = Enum.any?(km_por_dia, fn {_dia, km} -> km >= meta end)
 
-    Util.mostrar_mensaje("¿Meta alcanzada todos los días? #{if todos, do: "Sí", else: "No"}")
-    Util.mostrar_mensaje("¿Meta alcanzada al menos un día? #{if alguno, do: "Sí", else: "No"}")
+    mostrar("¿Meta alcanzada todos los días? #{if todos, do: "Sí", else: "No"}")
+    mostrar("¿Meta alcanzada al menos un día? #{if alguno, do: "Sí", else: "No"}")
 
     # Paso 6: retorna el mapa %{dia => km_totales}
     km_por_dia
@@ -171,16 +171,16 @@ defmodule Reportes do
     - liquidaciones: lista de mapas retornada por Calculos.calcular_liquidacion_todos/2
   """
   def r4(liquidaciones) do
-    Util.mostrar_mensaje("\n=== R4: Liquidación de repartidores ===")
+    mostrar("\n=== R4: Liquidación de repartidores ===")
 
     # Paso 1: ordena liquidaciones por neto desc
     liquidaciones
-    |> Enum.sort_by(& &1.neto, :desc)
+    |> Util2.ordenar(:desc, & &1.neto)
     # Paso 2: usa Enum.with_index(1) para numerar
     |> Enum.with_index(1)
     # Paso 3: imprime cada repartidor con todos sus datos
     |> Enum.each(fn {l, posicion} ->
-      Util.mostrar_mensaje(
+      mostrar(
         "#{posicion}. #{l.nombre} (#{l.codigo}) | Km: #{l.kilometros} | " <>
           "Servicios: $#{redondear(l.valor_servicios)} | " <>
           "Bonificaciones: $#{redondear(l.bonificaciones)} | " <>
@@ -204,7 +204,7 @@ defmodule Reportes do
     - repartidores: lista de repartidores
   """
   def r5(servicios_validos, repartidores) do
-    Util.mostrar_mensaje("\n=== R5: Repartidor con más km por día ===")
+    mostrar("\n=== R5: Repartidor con más km por día ===")
 
     # Paso 1: agrupa servicios por día
     por_dia = Enum.group_by(servicios_validos, & &1.dia)
@@ -230,7 +230,7 @@ defmodule Reportes do
     # Paso 4: imprime ganadores de cada día
     Enum.each(ganadores_por_dia, fn {dia, maximo, ganadores} ->
       nombres = Enum.map(ganadores, fn codigo -> nombre_de(codigo, repartidores) end)
-      Util.mostrar_mensaje("Día #{dia}: #{Enum.join(nombres, ", ")} con #{maximo} km")
+      mostrar("Día #{dia}: #{Enum.join(nombres, ", ")} con #{maximo} km")
     end)
 
     # Paso 5: cuenta quién ganó más días y muéstralo
@@ -240,15 +240,13 @@ defmodule Reportes do
       |> Enum.frequencies()
 
     if victorias == %{} do
-      Util.mostrar_mensaje("No hubo servicios válidos.")
+      mostrar("No hubo servicios válidos.")
     else
       {_codigo, mas_dias} = Enum.max_by(victorias, fn {_c, dias} -> dias end)
       primeros = for {codigo, dias} <- victorias, dias == mas_dias, do: codigo
       nombres = Enum.map(primeros, fn codigo -> nombre_de(codigo, repartidores) end)
 
-      Util.mostrar_mensaje(
-        "Primer lugar en más días: #{Enum.join(nombres, ", ")} (#{mas_dias} días)"
-      )
+      mostrar("Primer lugar en más días: #{Enum.join(nombres, ", ")} (#{mas_dias} días)")
     end
   end
 
@@ -270,7 +268,7 @@ defmodule Reportes do
     - repartidores: lista de repartidores
   """
   def r6(servicios_validos, repartidores) do
-    Util.mostrar_mensaje("\n=== R6: Mejor puntualidad ponderada ===")
+    mostrar("\n=== R6: Mejor puntualidad ponderada ===")
 
     # Paso 1: agrupa servicios por código de repartidor
     # Paso 2: filtra grupos con length >= 3
@@ -288,11 +286,11 @@ defmodule Reportes do
     # Paso 4: encuentra el mínimo con Enum.min_by
     # Paso 5: busca el nombre del repartidor ganador e imprímelo
     if candidatos == [] do
-      Util.mostrar_mensaje("Ningún repartidor tiene al menos 3 servicios válidos.")
+      mostrar("Ningún repartidor tiene al menos 3 servicios válidos.")
     else
       {codigo, ponderado, cantidad} = Enum.min_by(candidatos, fn {_c, p, _n} -> p end)
 
-      Util.mostrar_mensaje(
+      mostrar(
         "Mejor puntualidad: #{nombre_de(codigo, repartidores)} (#{codigo}) | " <>
           "Retraso ponderado: #{Float.round(ponderado, 2)} min | " <>
           "Servicios: #{cantidad}"
@@ -317,21 +315,21 @@ defmodule Reportes do
     - liquidaciones: lista de mapas de liquidación
   """
   def r7(liquidaciones) do
-    Util.mostrar_mensaje("\n=== R7: Total pagado y costo por km ===")
+    mostrar("\n=== R7: Total pagado y costo por km ===")
 
     # Paso 1: suma todos los netos
     total_pagado = Enum.sum(Enum.map(liquidaciones, & &1.neto))
     # Paso 2: suma todos los kilómetros
     km_totales = Enum.sum(Enum.map(liquidaciones, & &1.kilometros))
 
-    Util.mostrar_mensaje("Total pagado: $#{redondear(total_pagado)}")
-    Util.mostrar_mensaje("Kilómetros totales: #{km_totales}")
+    mostrar("Total pagado: $#{redondear(total_pagado)}")
+    mostrar("Kilómetros totales: #{km_totales}")
 
     # Paso 3: calcula y muestra el costo por km (evita dividir entre cero)
     if km_totales > 0 do
-      Util.mostrar_mensaje("Costo promedio por km: $#{redondear(total_pagado / km_totales)}")
+      mostrar("Costo promedio por km: $#{redondear(total_pagado / km_totales)}")
     else
-      Util.mostrar_mensaje("Costo promedio por km: no se puede calcular (0 km)")
+      mostrar("Costo promedio por km: no se puede calcular (0 km)")
     end
   end
 
@@ -349,7 +347,7 @@ defmodule Reportes do
     - zonas: lista de zonas
   """
   def r8(servicios_validos, repartidores, zonas) do
-    Util.mostrar_mensaje("\n=== R8: Repartidores en todas las zonas ===")
+    mostrar("\n=== R8: Repartidores en todas las zonas ===")
 
     # Paso 1: crea el MapSet de ids de zonas requeridas
     requeridas = MapSet.new(Enum.map(zonas, & &1.id))
@@ -371,15 +369,18 @@ defmodule Reportes do
 
     # Paso 4: filtra y muestra los que cumplen
     if cumplen == [] do
-      Util.mostrar_mensaje("Ningún repartidor trabajó en todas las zonas.")
+      mostrar("Ningún repartidor trabajó en todas las zonas.")
     else
-      Enum.each(cumplen, fn r -> Util.mostrar_mensaje("#{r.nombre} (#{r.codigo})") end)
+      Enum.each(cumplen, fn r -> mostrar("#{r.nombre} (#{r.codigo})") end)
     end
   end
 
   # --------------------------------------------------
   # Funciones auxiliares privadas
   # --------------------------------------------------
+
+  # Imprime un mensaje usando el módulo de utilidades del curso.
+  defp mostrar(mensaje), do: Util2.mostrar(mensaje, :mensaje)
 
   # Redondea a 2 decimales. El `* 1.0` evita el error de Float.round con enteros
   # (por ejemplo, el neto de un repartidor sin servicios es el entero 0).
