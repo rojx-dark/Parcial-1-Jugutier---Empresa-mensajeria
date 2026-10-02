@@ -124,7 +124,7 @@ defmodule Validacion do
     valido = is_number(retraso) and retraso >= -30 and retraso <= 180
 
     if valido do
-     
+
       :ok
     else
       {:error, :retraso_invalido}
